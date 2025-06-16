@@ -1,40 +1,40 @@
 # dockersetup.sh
 
-🚀 **Skrip Deployment Otomatis PostgreSQL & Redis dengan Docker**
+🚀 **Automated PostgreSQL & Redis Deployment Script with Docker**
 
-`dockersetup.sh` adalah skrip shell komprehensif dan mudah digunakan, dirancang untuk mengotomatisasi proses instalasi Docker (jika belum ada) dan mendeploy lingkungan database PostgreSQL serta Redis menggunakan Docker Compose. Skrip ini kompatibel dengan berbagai distribusi Linux (termasuk Ubuntu, Fedora, Arch, CentOS, dan openSUSE) dan memastikan kedua database secara otomatis akan menyala saat sistem Anda di-reboot.
-
----
-
-### ✨ Fitur Utama:
-- **Instalasi Docker Otomatis**: Deteksi OS cerdas dan instalasi Docker yang mulus jika tidak terdeteksi.
-- **Deployment PostgreSQL & Redis**: Menyebarkan container PostgreSQL dan Redis yang telah dikonfigurasi sebelumnya.
-- **Persistent Data**: Menggunakan volume Docker untuk memastikan data database Anda aman dan tidak hilang saat container di-restart atau dihapus.
-- **Automatic Startup**: Konfigurasi `restart: always` memastikan database Anda online kembali secara otomatis setelah reboot sistem.
-- **Cross-Distribution Compatible**: Dirancang untuk bekerja di berbagai distribusi Linux utama.
-- **Single-Command Execution**: Kemudahan deployment hanya dengan satu baris perintah.
-- **Penanganan Kata Sandi Aman**: Meminta kata sandi secara interaktif jika tidak disediakan sebagai variabel lingkungan.
+`dockersetup.sh` is a comprehensive and user-friendly shell script designed to automate the process of installing Docker (if not already present) and deploying a PostgreSQL and Redis database environment using Docker Compose. The script is compatible with a wide range of Linux distributions (including Ubuntu, Fedora, Arch, CentOS, and openSUSE) and ensures that both databases will automatically start when your system reboots.
 
 ---
 
-### 📝 Prasyarat:
-- Sistem operasi Linux yang didukung (Ubuntu, Debian, Linux Mint, Fedora, CentOS/RHEL/AlmaLinux/Rocky, Arch Linux, openSUSE).
-- Akses `sudo` (hak akses root).
-- Koneksi internet.
+### ✨ Key Features:
+- **Automatic Docker Installation**: Smart OS detection and seamless Docker installation if not detected.
+- **PostgreSQL & Redis Deployment**: Deploys pre-configured PostgreSQL and Redis containers.
+- **Persistent Data**: Uses Docker volumes to ensure your database data is safe and persists across container restarts or removals.
+- **Automatic Startup**: The `restart: always` configuration ensures your databases come back online automatically after a system reboot.
+- **Cross-Distribution Compatible**: Designed to work across major Linux distributions.
+- **Single-Command Execution**: Easy deployment with just a single command line.
+- **Secure Password Handling**: Interactively prompts for passwords if they are not provided as environment variables.
 
 ---
 
-### 🚀 Cara Menggunakan:
-Anda bisa menjalankan skrip ini hanya dengan satu perintah dari terminal Anda.
+### 📝 Prerequisites:
+- A supported Linux operating system (Ubuntu, Debian, Linux Mint, Fedora, CentOS/RHEL/AlmaLinux/Rocky, Arch Linux, openSUSE).
+- `sudo` access (root privileges).
+- An internet connection.
 
-#### 1. Atur Kata Sandi (Opsional tapi Direkomendasikan):
-Sangat disarankan untuk mengatur kata sandi PostgreSQL dan Redis sebagai variabel lingkungan sebelum menjalankan skrip untuk keamanan dan menghindari prompt interaktif. Ganti nilai contoh dengan kata sandi yang kuat dan unik.
+---
+
+### 🚀 How to Use:
+You can run this script with a single command from your terminal.
+
+#### 1. Set Passwords (Optional but Recommended):
+It is highly recommended to set the PostgreSQL and Redis passwords as environment variables before running the script for security and to avoid interactive prompts. Replace the example values with your own strong, unique passwords.
 
 ```bash
-export PG_PASSWORD="kata_sandi_postgres_yang_sangat_kuat"
-export REDIS_PASSWORD="kata_sandi_redis_yang_sangat_kuat" # Biarkan kosong jika Redis tidak ingin pakai kata sandi
+export PG_PASSWORD="a_very_strong_postgres_password"
+export REDIS_PASSWORD="a_very_strong_redis_password" # Leave empty if you don't want a password for Redis
 
-# Anda juga bisa menyesuaikan variabel lain jika diperlukan:
+# You can also customize other variables if needed:
 # export PG_VERSION="16"
 # export REDIS_VERSION="7"
 # export PG_DATA_PATH="/mnt/my_volume/pg_data"
@@ -45,66 +45,66 @@ export REDIS_PASSWORD="kata_sandi_redis_yang_sangat_kuat" # Biarkan kosong jika 
 # export PG_DB="mydb"
 ```
 
-#### 2. Jalankan Skrip:
-Salin dan tempelkan perintah di bawah ini ke terminal Anda dan tekan Enter.
+#### 2. Run the Script:
+Copy and paste the command below into your terminal and press Enter.
 
 ```bash
 wget -qO dockersetup.sh https://raw.githubusercontent.com/MrPinguiiin/dockersetup/main/dockersetup.sh && chmod +x dockersetup.sh && sudo ./dockersetup.sh
 ```
 
-**PENTING**: Pastikan Anda telah memeriksa isi skrip sebelum menjalankannya dengan hak akses root.
+**IMPORTANT**: Make sure you have reviewed the script's contents before running it with root privileges.
 
 ---
 
-### ⚙️ Konfigurasi Default:
-| Service      | Konfigurasi            | Nilai Default                  | Variabel Lingkungan |
-|--------------|------------------------|--------------------------------|---------------------|
-| **PostgreSQL** | Versi                  | `16`                           | `PG_VERSION`        |
-|              | Port Host              | `5432`                         | `PG_PORT`           |
-|              | User                   | `dockeruser`                   | `PG_USER`           |
-|              | Database               | `mydatabase`                   | `PG_DB`             |
-|              | Jalur Data Host        | `/data/postgresql_data`        | `PG_DATA_PATH`      |
-| **Redis**      | Versi                  | `7-alpine`                     | `REDIS_VERSION`     |
-|              | Port Host              | `6379`                         | `REDIS_PORT`        |
-|              | Jalur Data Host        | `/data/redis_data`             | `REDIS_DATA_PATH`   |
+### ⚙️ Default Configuration:
+| Service      | Configuration    | Default Value             | Environment Variable |
+|--------------|------------------|---------------------------|----------------------|
+| **PostgreSQL** | Version          | `16`                      | `PG_VERSION`         |
+|              | Host Port        | `5432`                    | `PG_PORT`            |
+|              | User             | `dockeruser` (prompts)    | `PG_USER`            |
+|              | Database         | `mydatabase` (prompts)    | `PG_DB`              |
+|              | Host Data Path   | `/data/postgresql_data`   | `PG_DATA_PATH`       |
+| **Redis**      | Version          | `7-alpine`                | `REDIS_VERSION`      |
+|              | Host Port        | `6379`                    | `REDIS_PORT`         |
+|              | Host Data Path   | `/data/redis_data`        | `REDIS_DATA_PATH`    |
 
 ---
 
-### 👀 Setelah Deployment Selesai:
+### 👀 After Deployment:
 
-- **Verifikasi Container**:
+- **Verify Containers**:
   ```bash
   sudo docker ps
   ```
-  Anda akan melihat `postgres_db` dan `redis_cache` berjalan.
+  You should see `postgres_db` and `redis_cache` running.
 
-- **Lihat Log PostgreSQL**:
+- **View PostgreSQL Logs**:
   ```bash
   sudo docker logs postgres_db
   ```
 
-- **Lihat Log Redis**:
+- **View Redis Logs**:
   ```bash
   sudo docker logs redis_cache
   ```
 
-- **Perbarui Container**: Jika ada versi baru image yang ingin Anda gunakan:
+- **Update Containers**: If you want to use a new version of an image:
   ```bash
-  cd <direktori_tempat_skrip_dieksekusi>
+  cd <directory_where_script_was_executed>
   sudo docker compose pull
   sudo docker compose up -d
   ```
 
-- **Hentikan & Hapus Container**:
+- **Stop & Remove Containers**:
   ```bash
-  cd <direktori_tempat_skrip_dieksekusi>
+  cd <directory_where_script_was_executed>
   sudo docker compose down
   ```
-  *(Ini tidak akan menghapus data di volume host).*
+  *(This will not delete the data in the host volumes).*
 
 ---
 
-### ⚠️ Catatan Penting:
-- **Keamanan Firewall**: Skrip ini **TIDAK** mengkonfigurasi firewall sistem Anda (seperti `ufw` atau `firewalld`). Jika Anda berencana mengakses PostgreSQL atau Redis dari luar mesin tempat mereka di-deploy, Anda **HARUS** membuka port yang relevan (misalnya 5432 dan 6379) di firewall Anda.
-- **Hak Akses Docker Tanpa Sudo**: Jika Docker baru saja diinstal, Anda mungkin perlu **keluar dan masuk kembali (atau me-reboot)** ke sistem Anda agar pengguna Anda dapat menjalankan perintah `docker` tanpa `sudo`. Skrip secara otomatis menambahkan Anda ke grup `docker`.
-- **Data Persistence**: Data database Anda disimpan di direktori host yang Anda tentukan (default: `/data/postgresql_data` dan `/data/redis_data`). **Jangan hapus direktori ini jika Anda ingin menyimpan data Anda!** 
+### ⚠️ Important Notes:
+- **Firewall Security**: This script does **NOT** configure your system's firewall (like `ufw` or `firewalld`). If you plan to access PostgreSQL or Redis from outside the machine they are deployed on, you **MUST** open the relevant ports (e.g., 5432 and 6379) in your firewall.
+- **Docker Access Without Sudo**: If Docker was just installed, you might need to **log out and log back in (or reboot)** your system for your user to be able to run `docker` commands without `sudo`. The script automatically adds your user to the `docker` group.
+- **Data Persistence**: Your database data is stored in the host directories you specified (default: `/data/postgresql_data` and `/data/redis_data`). **Do not delete these directories if you want to keep your data!** 
