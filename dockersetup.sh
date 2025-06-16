@@ -43,10 +43,6 @@ if [ -z "$REDIS_PASSWORD" ]; then
     echo
 fi
 
-# --- Variabel Global ---
-# DOCKER_COMPOSE_URL="https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" # Not used in this script
-# DOCKER_COMPOSE_PATH="/usr/local/bin/docker-compose" # Not used in this script
-
 # --- Fungsi ---
 
 log() {
@@ -69,21 +65,26 @@ detect_os() {
         . /etc/os-release
         OS_NAME=$ID
         OS_VERSION_ID=$VERSION_ID
-        # Special handling for Linux Mint to use its Ubuntu base codename
-        if [[ "$ID" == "linuxmint" ]]; then
-            log "Detected Linux Mint. Determining Ubuntu base codename..."
-            if grep -q "UBUNTU_CODENAME=jammy" /etc/os-release; then
-                UBUNTU_BASE_CODENAME="jammy"
-            elif grep -q "UBUNTU_CODENAME=noble" /etc/os-release; then
-                UBUNTU_BASE_CODENAME="noble"
+
+        # Untuk sistem berbasis Debian/Ubuntu (termasuk Linux Mint), kita perlu menentukan codename yang benar
+        # untuk repositori Docker. Gunakan UBUNTU_CODENAME jika ada, jika tidak, fallback ke VERSION_CODENAME
+        # untuk OS non-Mint atau Debian yang tidak memiliki UBUNTU_CODENAME.
+        if [[ "$OS_NAME" == "ubuntu" || "$OS_NAME" == "debian" || "$OS_NAME" == "linuxmint" ]]; then
+            # UBUNTU_CODENAME adalah yang paling tepat untuk Linux Mint
+            if [ -n "$UBUNTU_CODENAME" ]; then
+                REPO_CODENAME=$UBUNTU_CODENAME
+                log "Menggunakan UBUNTU_CODENAME untuk repositori Docker: $REPO_CODENAME"
+            elif [ -n "$VERSION_CODENAME" ]; then # Untuk Debian atau Ubuntu lama yang mungkin tidak punya UBUNTU_CODENAME
+                REPO_CODENAME=$VERSION_CODENAME
+                log "Menggunakan VERSION_CODENAME untuk repositori Docker: $REPO_CODENAME"
             else
-                log "Warning: Could not determine specific Ubuntu base codename for Linux Mint. Using generic release name."
-                UBUNTU_BASE_CODENAME=$(lsb_release -cs) # Fallback, might still be 'xia'
+                error_exit "Tidak dapat menentukan codename rilis yang sesuai untuk repositori Docker."
             fi
-            log "Linux Mint based on Ubuntu codename: $UBUNTU_BASE_CODENAME"
         else
-            UBUNTU_BASE_CODENAME=$VERSION_CODENAME
+            # Untuk OS non-Debian/Ubuntu, REPO_CODENAME tidak relevan untuk repositori mereka
+            REPO_CODENAME="" # Kosongkan karena tidak digunakan
         fi
+
     else
         error_exit "Tidak dapat mendeteksi OS. Skrip ini mungkin tidak kompatibel."
     fi
@@ -100,17 +101,27 @@ install_docker() {
 
     case "$OS_NAME" in
         ubuntu|debian|linuxmint)
-            log "Menginstal Docker pada sistem berbasis Debian..."
+            log "Menginstal Docker pada sistem berbasis Debian/Ubuntu..."
+            # Hapus instalasi Docker lama untuk menghindari konflik
+            log "Menghapus instalasi Docker lama (jika ada)..."
+            for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do
+                sudo apt-get remove -y "$pkg" 2>/dev/null
+            done
+
             sudo apt update || error_exit "Gagal memperbarui apt."
             sudo apt install -y ca-certificates curl gnupg lsb-release || error_exit "Gagal menginstal prasyarat."
+
             sudo install -m 0755 -d /etc/apt/keyrings || error_exit "Gagal membuat direktori keyrings."
-            curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg || error_exit "Gagal menambahkan kunci GPG Docker."
-            sudo chmod a+r /etc/apt/keyrings/docker.gpg || error_exit "Gagal mengatur izin untuk kunci GPG."
+            sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc || error_exit "Gagal mengunduh kunci GPG Docker."
+            sudo chmod a+r /etc/apt/keyrings/docker.asc || error_exit "Gagal mengatur izin untuk kunci GPG."
             
-            # Use UBUNTU_BASE_CODENAME for Linux Mint compatibility
+            # Gunakan REPO_CODENAME yang telah ditentukan secara universal
+            if [ -z "$REPO_CODENAME" ]; then
+                error_exit "Kesalahan internal: REPO_CODENAME tidak terdefinisi untuk instalasi Docker."
+            fi
             echo \
-              "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-              "${UBUNTU_BASE_CODENAME}" stable" | \
+              "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
+              "${REPO_CODENAME}" stable" | \
               sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || error_exit "Gagal menambahkan repositori Docker."
             
             sudo apt update || error_exit "Gagal memperbarui apt setelah menambahkan repo Docker."
@@ -143,6 +154,7 @@ install_docker() {
     esac
 
     # Tambahkan pengguna saat ini ke grup docker (untuk perintah docker non-root)
+    # Ini harus dilakukan setelah instalasi Docker, karena grup 'docker' dibuat oleh paket Docker.
     if ! getent group docker > /dev/null; then
         sudo groupadd docker || error_exit "Gagal membuat grup docker."
     fi
@@ -202,20 +214,24 @@ EOF
 deploy_containers() {
     log "Menarik image Docker dan melakukan deployment container..."
     # Pastikan Docker berjalan sebelum mencoba menggunakan compose
+    # Note: docker-ce dan containerd.io secara otomatis mengaktifkan dan memulai layanan docker
+    # saat diinstal dari repositori resmi. Ini adalah double-check.
     sudo systemctl is-active docker || sudo systemctl start docker || error_exit "Layanan Docker tidak berjalan dan gagal dimulai."
     sudo systemctl is-enabled docker || sudo systemctl enable docker || error_exit "Layanan Docker tidak aktif dan gagal diaktifkan."
 
-    # Gunakan plugin docker compose jika tersedia, jika tidak kembali ke docker-compose eksternal
-    if docker compose version &> /dev/null; then
+    # Gunakan plugin docker compose jika tersedia, yang merupakan metode standar modern
+    if command -v docker &>/dev/null && docker compose version &> /dev/null; then
+        log "Menggunakan plugin 'docker compose'..."
         sudo docker compose pull || error_exit "Gagal menarik image Docker dengan docker compose."
         sudo docker compose up -d || error_exit "Gagal melakukan deployment container dengan docker compose."
     else
-        # Fallback for older Docker installations without the plugin or external docker-compose
-        if ! command -v docker-compose &> /dev/null; then
-             error_exit "Perintah docker-compose tidak ditemukan. Pastikan plugin Docker Compose terinstal atau instal docker-compose secara manual."
-        fi
-        sudo docker-compose pull || error_exit "Gagal menarik image Docker dengan docker-compose."
-        sudo docker-compose up -d || error_exit "Gagal melakukan deployment container dengan docker-compose."
+        error_exit "Plugin 'docker compose' tidak ditemukan atau Docker tidak terinstal dengan benar. Mohon periksa instalasi Docker Anda."
+        # Fallback ke docker-compose standalone jika masih diperlukan (jarang setelah 2021)
+        # if ! command -v docker-compose &> /dev/null; then
+        #      error_exit "Perintah docker-compose tidak ditemukan. Pastikan Docker Compose plugin terinstal atau instal docker-compose secara manual."
+        # fi
+        # sudo docker-compose pull || error_exit "Failed to pull Docker images with docker-compose."
+        # sudo docker-compose up -d || error_exit "Failed to deploy containers with docker-compose."
     fi
     log "Container berhasil di-deploy."
 }
