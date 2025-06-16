@@ -100,6 +100,9 @@ install_docker() {
                 CODENAME="$VERSION_CODENAME"
             fi
 
+            # Hapus file repo lama jika ada untuk memastikan instalasi bersih pada percobaan ulang
+            sudo rm -f /etc/apt/sources.list.d/docker.list
+
             echo \
               "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
               \"$CODENAME\" stable" | \
