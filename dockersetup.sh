@@ -44,8 +44,8 @@ if [ -z "$REDIS_PASSWORD" ]; then
 fi
 
 # --- Variabel Global ---
-DOCKER_COMPOSE_URL="https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)"
-DOCKER_COMPOSE_PATH="/usr/local/bin/docker-compose"
+# DOCKER_COMPOSE_URL="https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" # Not used in this script
+# DOCKER_COMPOSE_PATH="/usr/local/bin/docker-compose" # Not used in this script
 
 # --- Fungsi ---
 
@@ -69,6 +69,21 @@ detect_os() {
         . /etc/os-release
         OS_NAME=$ID
         OS_VERSION_ID=$VERSION_ID
+        # Special handling for Linux Mint to use its Ubuntu base codename
+        if [[ "$ID" == "linuxmint" ]]; then
+            log "Detected Linux Mint. Determining Ubuntu base codename..."
+            if grep -q "UBUNTU_CODENAME=jammy" /etc/os-release; then
+                UBUNTU_BASE_CODENAME="jammy"
+            elif grep -q "UBUNTU_CODENAME=noble" /etc/os-release; then
+                UBUNTU_BASE_CODENAME="noble"
+            else
+                log "Warning: Could not determine specific Ubuntu base codename for Linux Mint. Using generic release name."
+                UBUNTU_BASE_CODENAME=$(lsb_release -cs) # Fallback, might still be 'xia'
+            fi
+            log "Linux Mint based on Ubuntu codename: $UBUNTU_BASE_CODENAME"
+        else
+            UBUNTU_BASE_CODENAME=$VERSION_CODENAME
+        fi
     else
         error_exit "Tidak dapat mendeteksi OS. Skrip ini mungkin tidak kompatibel."
     fi
@@ -91,10 +106,13 @@ install_docker() {
             sudo install -m 0755 -d /etc/apt/keyrings || error_exit "Gagal membuat direktori keyrings."
             curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg || error_exit "Gagal menambahkan kunci GPG Docker."
             sudo chmod a+r /etc/apt/keyrings/docker.gpg || error_exit "Gagal mengatur izin untuk kunci GPG."
+            
+            # Use UBUNTU_BASE_CODENAME for Linux Mint compatibility
             echo \
               "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-              "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+              "${UBUNTU_BASE_CODENAME}" stable" | \
               sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || error_exit "Gagal menambahkan repositori Docker."
+            
             sudo apt update || error_exit "Gagal memperbarui apt setelah menambahkan repo Docker."
             sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || error_exit "Gagal menginstal komponen Docker."
             ;;
@@ -192,7 +210,7 @@ deploy_containers() {
         sudo docker compose pull || error_exit "Gagal menarik image Docker dengan docker compose."
         sudo docker compose up -d || error_exit "Gagal melakukan deployment container dengan docker compose."
     else
-        # Fallback untuk instalasi Docker yang lebih lama tanpa plugin atau docker-compose eksternal
+        # Fallback for older Docker installations without the plugin or external docker-compose
         if ! command -v docker-compose &> /dev/null; then
              error_exit "Perintah docker-compose tidak ditemukan. Pastikan plugin Docker Compose terinstal atau instal docker-compose secara manual."
         fi
