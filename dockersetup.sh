@@ -44,10 +44,10 @@ fi
 # Prompt for PostgreSQL Password
 if [ -z "$PG_PASSWORD" ]; then
     while true; do
-        read -sp "Enter PostgreSQL password for '$PG_USER': " PG_PASSWORD
+        read -sp "Enter PostgreSQL password (cannot be empty): " PG_PASSWORD
         echo
         if [ -z "$PG_PASSWORD" ]; then
-            echo "Error: PostgreSQL password cannot be empty. Please try again."
+            echo "Error: PostgreSQL password cannot be empty. Please provide a password."
         else
             break
         fi
@@ -88,23 +88,18 @@ detect_os() {
         OS_NAME=$ID
         OS_VERSION_ID=$VERSION_ID
 
-        # For Debian/Ubuntu-based systems (including Linux Mint), we need to determine the correct codename
-        # for Docker repositories. Prioritize UBUNTU_CODENAME if available, then fallback to VERSION_CODENAME
-        # for non-Mint or older Debian/Ubuntu that might not have UBUNTU_CODENAME.
         if [[ "$OS_NAME" == "ubuntu" || "$OS_NAME" == "debian" || "$OS_NAME" == "linuxmint" ]]; then
-            # UBUNTU_CODENAME is most accurate for Linux Mint
             if [ -n "$UBUNTU_CODENAME" ]; then
                 REPO_CODENAME=$UBUNTU_CODENAME
                 log "Using UBUNTU_CODENAME for Docker repository: $REPO_CODENAME"
-            elif [ -n "$VERSION_CODENAME" ]; then # For Debian or older Ubuntu that might not have UBUNTU_CODENAME
+            elif [ -n "$VERSION_CODENAME" ]; then
                 REPO_CODENAME=$VERSION_CODENAME
                 log "Using VERSION_CODENAME for Docker repository: $REPO_CODENAME"
             else
                 error_exit "Could not determine suitable release codename for Docker repository."
             fi
         else
-            # For non-Debian/Ubuntu OS, REPO_CODENAME is not relevant for their specific repositories
-            REPO_CODENAME="" # Empty as it's not used
+            REPO_CODENAME=""
         fi
 
     else
@@ -124,7 +119,6 @@ install_docker() {
     case "$OS_NAME" in
         ubuntu|debian|linuxmint)
             log "Installing Docker on Debian/Ubuntu-based system..."
-            # Remove old Docker installations to prevent conflicts
             log "Removing old Docker installations (if any)..."
             for pkg in docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc; do
                 sudo apt-get remove -y "$pkg" 2>/dev/null
@@ -136,8 +130,7 @@ install_docker() {
             sudo install -m 0755 -d /etc/apt/keyrings || error_exit "Failed to create keyrings directory."
             sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc || error_exit "Failed to download Docker GPG key."
             sudo chmod a+r /etc/apt/keyrings/docker.asc || error_exit "Failed to set permissions for GPG key."
-            
-            # Use the universally determined REPO_CODENAME
+
             if [ -z "$REPO_CODENAME" ]; then
                 error_exit "Internal error: REPO_CODENAME is undefined for Docker installation."
             fi
@@ -145,7 +138,7 @@ install_docker() {
               "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
               "${REPO_CODENAME}" stable" | \
               sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || error_exit "Failed to add Docker repository."
-            
+
             sudo apt update || error_exit "Failed to update apt after adding Docker repo."
             sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || error_exit "Failed to install Docker components."
             ;;
@@ -175,8 +168,6 @@ install_docker() {
             ;;
     esac
 
-    # Add current user to docker group (for non-root docker commands)
-    # This must be done after Docker installation, as the 'docker' group is created by Docker packages.
     if ! getent group docker > /dev/null; then
         sudo groupadd docker || error_exit "Failed to create docker group."
     fi
@@ -235,25 +226,15 @@ EOF
 
 deploy_containers() {
     log "Pulling Docker images and deploying containers..."
-    # Ensure Docker is running before trying to use compose
-    # Note: docker-ce and containerd.io automatically enable and start the docker service
-    # when installed from official repositories. This is a double-check.
     sudo systemctl is-active docker || sudo systemctl start docker || error_exit "Docker service is not running and failed to start."
     sudo systemctl is-enabled docker || sudo systemctl enable docker || error_exit "Docker service is not enabled and failed to enable."
 
-    # Use the docker compose plugin which is the modern standard method
     if command -v docker &>/dev/null && docker compose version &> /dev/null; then
         log "Using 'docker compose' plugin..."
         sudo docker compose pull || error_exit "Failed to pull Docker images with docker compose."
         sudo docker compose up -d || error_exit "Failed to deploy containers with docker compose."
     else
         error_exit "The 'docker compose' plugin was not found or Docker is not installed correctly. Please check your Docker installation."
-        # Fallback to docker-compose standalone if still needed (rare after 2021)
-        # if ! command -v docker-compose &> /dev/null; then
-        #      error_exit "The docker-compose command was not found. Ensure Docker Compose plugin is installed or install docker-compose manually."
-        # fi
-        # sudo docker-compose pull || error_exit "Failed to pull Docker images with docker-compose."
-        # sudo docker-compose up -d || error_exit "Failed to deploy containers with docker-compose."
     fi
     log "Containers deployed successfully."
 }
@@ -262,9 +243,8 @@ deploy_containers() {
 
 check_root
 detect_os
-install_docker # This also handles adding user to docker group. User might need to re-login.
+install_docker
 
-# Give some time for Docker service to be fully up after installation
 sleep 5
 
 create_docker_compose_file
