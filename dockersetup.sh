@@ -108,6 +108,38 @@ detect_os() {
     log "Detected OS: $OS_NAME $OS_VERSION_ID"
 }
 
+# --- New Function to Clean Up Existing Containers and Volumes ---
+clean_existing_containers_and_volumes() {
+    log "Attempting to clean up existing 'postgres_db' and 'redis_cache' containers and their data volumes..."
+
+    # Stop and remove containers
+    if sudo docker ps -a --format '{{.Names}}' | grep -q "postgres_db"; then
+        log "Stopping and removing container 'postgres_db'..."
+        sudo docker stop postgres_db || log "Warning: Failed to stop postgres_db."
+        sudo docker rm postgres_db || log "Warning: Failed to remove postgres_db."
+    fi
+
+    if sudo docker ps -a --format '{{.Names}}' | grep -q "redis_cache"; then
+        log "Stopping and removing container 'redis_cache'..."
+        sudo docker stop redis_cache || log "Warning: Failed to stop redis_cache."
+        sudo docker rm redis_cache || log "Warning: Failed to remove redis_cache."
+    fi
+
+    # Remove data directories on the host
+    if [ -d "$PG_DATA_PATH" ]; then
+        log "Removing PostgreSQL data directory: $PG_DATA_PATH"
+        sudo rm -rf "$PG_DATA_PATH" || log "Warning: Failed to remove PostgreSQL data directory."
+    fi
+
+    if [ -d "$REDIS_DATA_PATH" ]; then
+        log "Removing Redis data directory: $REDIS_DATA_PATH"
+        sudo rm -rf "$REDIS_DATA_PATH" || log "Warning: Failed to remove Redis data directory."
+    fi
+
+    log "Cleanup complete. Starting with a fresh environment."
+}
+
+
 install_docker() {
     if command -v docker &> /dev/null; then
         log "Docker is already installed. Skipping Docker installation."
@@ -243,6 +275,7 @@ deploy_containers() {
 
 check_root
 detect_os
+clean_existing_containers_and_volumes # Call the cleanup function here!
 install_docker
 
 sleep 5
