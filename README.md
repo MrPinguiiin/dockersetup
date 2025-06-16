@@ -49,9 +49,10 @@ export REDIS_PASSWORD="kata_sandi_redis_yang_sangat_kuat" # Biarkan kosong jika 
 Salin dan tempelkan perintah di bawah ini ke terminal Anda dan tekan Enter.
 
 ```bash
-wget -qO dockersetup.sh https://raw.githubusercontent.com/your-github-username/your-repo-name/main/dockersetup.sh && chmod +x dockersetup.sh && sudo ./dockersetup.sh
+wget -qO dockersetup.sh https://raw.githubusercontent.com/MrPinguiiin/dockersetup/main/dockersetup.sh && chmod +x dockersetup.sh && sudo ./dockersetup.sh
 ```
-**PENTING**: Ganti `https://raw.githubusercontent.com/your-github-username/your-repo-name/main/dockersetup.sh` dengan URL mentah (raw URL) yang sebenarnya dari file `dockersetup.sh` di repositori GitHub Anda.
+
+**PENTING**: Pastikan Anda telah memeriksa isi skrip sebelum menjalankannya dengan hak akses root.
 
 ---
 
