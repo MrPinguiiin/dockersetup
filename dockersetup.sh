@@ -91,9 +91,18 @@ install_docker() {
             sudo install -m 0755 -d /etc/apt/keyrings || error_exit "Gagal membuat direktori keyrings."
             curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg || error_exit "Gagal menambahkan kunci GPG Docker."
             sudo chmod a+r /etc/apt/keyrings/docker.gpg || error_exit "Gagal mengatur izin untuk kunci GPG."
+            
+            # Mendapatkan codename yang benar. Untuk Mint, gunakan codename Ubuntu dasarnya.
+            . /etc/os-release
+            if [ "$ID" = "linuxmint" ]; then
+                CODENAME="$UBUNTU_CODENAME"
+            else
+                CODENAME="$VERSION_CODENAME"
+            fi
+
             echo \
               "deb [arch=\"$(dpkg --print-architecture)\" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-              "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+              \"$CODENAME\" stable" | \
               sudo tee /etc/apt/sources.list.d/docker.list > /dev/null || error_exit "Gagal menambahkan repositori Docker."
             sudo apt update || error_exit "Gagal memperbarui apt setelah menambahkan repo Docker."
             sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin || error_exit "Gagal menginstal komponen Docker."
